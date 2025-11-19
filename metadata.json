@@ -1,0 +1,7 @@
+{
+  "name": "Processflow",
+  "description": "A centralized platform for documenting, organizing, and sharing business processes with multimedia support.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
