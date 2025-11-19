@@ -35,7 +35,7 @@ export interface Process {
   shareSettings: ShareSettings;
 }
 
-export type ViewMode = 'dashboard' | 'editor' | 'viewer';
+export type ViewMode = 'dashboard' | 'editor' | 'viewer' | 'users';
 
 export interface NavItem {
   id: string;

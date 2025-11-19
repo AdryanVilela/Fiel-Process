@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, FilePlus2, Search, CircleUser, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, FilePlus2, Search, CircleUser, LogOut, User as UserIcon, Users } from 'lucide-react';
 import { ViewMode } from '../types';
 
 interface HeaderProps {
@@ -58,6 +58,14 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onChangeView, onSea
           >
             <FilePlus2 size={18} />
             <span className="text-sm font-medium hidden md:block">Novo</span>
+          </button>
+
+          <button 
+            onClick={() => onChangeView('users')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${currentView === 'users' ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+          >
+            <Users size={18} />
+            <span className="text-sm font-medium hidden md:block">Usuários</span>
           </button>
 
           <div className="w-px h-6 bg-slate-200 mx-1 hidden md:block"></div>

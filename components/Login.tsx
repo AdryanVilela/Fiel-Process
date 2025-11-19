@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, Info } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, User as UserIcon, UserPlus } from 'lucide-react';
+import { loginUser, registerUser } from '../services/storageService';
 
 interface LoginProps {
-  onLogin: (email: string) => void;
+  onLogin: (user: { email: string; name: string; id: string }) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -15,23 +18,48 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setError('');
     
-    if (!email || !password) {
+    if (!email || !password || (isRegistering && !name)) {
       setError('Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
     setIsLoading(true);
 
-    // Simula uma requisição de API
+    // Simula delay de rede
     setTimeout(() => {
-      setIsLoading(false);
-      if (password.length < 6) {
-        setError('A senha deve ter pelo menos 6 caracteres.');
-        return;
+      if (isRegistering) {
+        // Register Flow
+        const result = registerUser({ email, password, name });
+        setIsLoading(false);
+        if (result.success && result.user) {
+          onLogin(result.user);
+        } else {
+          setError(result.message || 'Erro ao criar conta.');
+        }
+      } else {
+        // Login Flow
+        const result = loginUser(email, password);
+        setIsLoading(false);
+        if (result.success && result.user) {
+          onLogin(result.user);
+        } else {
+          setError(result.message || 'Erro ao entrar.');
+        }
       }
-      // Sucesso
-      onLogin(email);
-    }, 1500);
+    }, 1000);
+  };
+
+  const toggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setError('');
+    setEmail('');
+    setPassword('');
+    setName('');
   };
 
   return (
@@ -47,8 +75,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <ShieldCheck size={32} />
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-white relative z-10">Bem-vindo de volta</h2>
-          <p className="text-brand-100 text-sm mt-1 relative z-10">Acesse seus processos e documentos</p>
+          <h2 className="text-2xl font-bold text-white relative z-10">
+            {isRegistering ? 'Crie sua conta' : 'Bem-vindo de volta'}
+          </h2>
+          <p className="text-brand-100 text-sm mt-1 relative z-10">
+            {isRegistering ? 'Comece a organizar seus processos hoje' : 'Acesse seus processos e documentos'}
+          </p>
         </div>
 
         <div className="p-8">
@@ -56,6 +88,24 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {error && (
               <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg text-center animate-in fade-in slide-in-from-top-2">
                 {error}
+              </div>
+            )}
+
+            {isRegistering && (
+              <div className="space-y-1.5 animate-in slide-in-from-top-2">
+                <label className="text-sm font-medium text-slate-700 ml-1">Nome Completo</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                    <UserIcon size={20} />
+                  </div>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                    placeholder="Seu nome"
+                  />
+                </div>
               </div>
             )}
 
@@ -91,13 +141,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center">
-                <input id="remember-me" type="checkbox" className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded" />
-                <label htmlFor="remember-me" className="ml-2 block text-slate-500">Lembrar de mim</label>
+            {!isRegistering && (
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center">
+                  <input id="remember-me" type="checkbox" className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded" />
+                  <label htmlFor="remember-me" className="ml-2 block text-slate-500">Lembrar de mim</label>
+                </div>
+                <button type="button" className="text-brand-600 hover:text-brand-700 font-medium">Esqueceu a senha?</button>
               </div>
-              <button type="button" className="text-brand-600 hover:text-brand-700 font-medium">Esqueceu a senha?</button>
-            </div>
+            )}
 
             <button
               type="submit"
@@ -107,29 +159,33 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               {isLoading ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  <span>Entrando...</span>
+                  <span>Processando...</span>
                 </>
               ) : (
                 <>
-                  <span>Acessar Plataforma</span>
-                  <ArrowRight size={18} />
+                  <span>{isRegistering ? 'Criar Conta' : 'Acessar Plataforma'}</span>
+                  {isRegistering ? <UserPlus size={18} /> : <ArrowRight size={18} />}
                 </>
               )}
             </button>
 
-            <div className="mt-6 p-3 bg-brand-50 border border-brand-100 rounded-lg flex gap-3 items-start">
-              <Info className="text-brand-600 flex-shrink-0 mt-0.5" size={16} />
-              <p className="text-xs text-brand-800 leading-relaxed">
-                <strong>Modo Demonstração:</strong> Você pode usar qualquer e-mail e uma senha com no mínimo 6 caracteres para acessar.
+            <div className="mt-6 text-center">
+              <p className="text-sm text-slate-600">
+                {isRegistering ? 'Já tem uma conta?' : 'Não tem uma conta?'}
+                <button 
+                  type="button"
+                  onClick={toggleMode}
+                  className="ml-1 font-bold text-brand-600 hover:text-brand-800 transition-colors"
+                >
+                  {isRegistering ? 'Fazer Login' : 'Cadastre-se'}
+                </button>
               </p>
             </div>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 pt-6 border-t border-slate-50 text-center">
             <p className="text-xs text-slate-400">
-              Protegido por criptografia de ponta a ponta.
-              <br />
-              ProcessFlow &copy; 2024
+              ProcessFlow &copy; 2024 • Protegido por criptografia local.
             </p>
           </div>
         </div>

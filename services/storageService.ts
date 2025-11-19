@@ -2,6 +2,7 @@ import { Process } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEY = 'processflow_data_v1';
+const USERS_KEY = 'processflow_users_v1';
 
 const SAMPLE_PROCESS: Process = {
   id: 'sample-1',
@@ -84,4 +85,65 @@ export const toggleFavorite = (id: string): void => {
 
 export const generateId = (): string => {
   return uuidv4();
+};
+
+// User Management System
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  password: string; // In a real app, this would be hashed
+}
+
+export const getUsers = (): User[] => {
+  const data = localStorage.getItem(USERS_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+export const registerUser = (user: Omit<User, 'id'>): { success: boolean; message?: string; user?: User } => {
+  const users = getUsers();
+  
+  if (users.some(u => u.email === user.email)) {
+    return { success: false, message: 'Este e-mail já está cadastrado.' };
+  }
+
+  const newUser = { ...user, id: generateId() };
+  users.push(newUser);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  
+  return { success: true, user: newUser };
+};
+
+export const updateUser = (updatedUser: User): { success: boolean; message?: string } => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === updatedUser.id);
+
+  if (index === -1) {
+    return { success: false, message: 'Usuário não encontrado.' };
+  }
+
+  // Check if email change conflicts with another user
+  if (users.some(u => u.email === updatedUser.email && u.id !== updatedUser.id)) {
+    return { success: false, message: 'Este e-mail já está sendo usado por outro usuário.' };
+  }
+
+  users[index] = updatedUser;
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  
+  return { success: true };
+};
+
+export const loginUser = (email: string, password: string): { success: boolean; message?: string; user?: User } => {
+  const users = getUsers();
+  const user = users.find(u => u.email === email && u.password === password);
+
+  if (!user) {
+    // Demo fallback for testing if no users exist or special demo credentials
+    if (users.length === 0 && password.length >= 6) {
+       return { success: true, user: { id: 'demo', email, name: 'Usuário Demo', password } };
+    }
+    return { success: false, message: 'E-mail ou senha incorretos.' };
+  }
+
+  return { success: true, user };
 };

@@ -5,12 +5,12 @@ import { BlockRenderer } from './components/BlockRenderer';
 import { ShareModal } from './components/ShareModal';
 import { Login } from './components/Login'; // Import Login
 import { Process, ViewMode, Block, ShareSettings } from './types';
-import { getProcesses, saveProcess, deleteProcess, generateId } from './services/storageService';
-import { Plus, Share2, ChevronLeft, Save, Pencil, Trash2, Check, Text, Image as ImageIcon, Film, Mic, ListTodo, Calendar, Sparkles, FileText } from 'lucide-react';
+import { getProcesses, saveProcess, deleteProcess, generateId, getUsers, registerUser, updateUser, User } from './services/storageService';
+import { Plus, Share2, ChevronLeft, Save, Pencil, Trash2, Check, Text, Image as ImageIcon, Film, Mic, ListTodo, Calendar, Sparkles, FileText, Users, Mail, Shield, UserPlus, X, Lock, User as UserIcon, KeyRound } from 'lucide-react';
 
 function App() {
   // Auth State
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; name?: string; id?: string } | null>(null);
 
   // App State
   const [view, setView] = useState<ViewMode>('dashboard');
@@ -19,6 +19,17 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  
+  // Users List State
+  const [systemUsers, setSystemUsers] = useState<User[]>([]);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  
+  // Add/Edit User Form State
+  const [formUserName, setFormUserName] = useState('');
+  const [formUserEmail, setFormUserEmail] = useState('');
+  const [formUserPassword, setFormUserPassword] = useState('');
 
   // Sharing State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -38,8 +49,15 @@ function App() {
     loadData();
   }, []);
 
-  const handleLogin = (email: string) => {
-    const userData = { email };
+  // Fetch users when switching to users view
+  useEffect(() => {
+    if (view === 'users') {
+      const users = getUsers();
+      setSystemUsers(users);
+    }
+  }, [view]);
+
+  const handleLogin = (userData: { email: string; name: string; id: string }) => {
     setUser(userData);
     localStorage.setItem('processflow_user', JSON.stringify(userData));
   };
@@ -129,6 +147,79 @@ function App() {
       saveProcess(updatedProcess);
       // Update local state immediately to reflect changes in UI if needed
       setProcesses(prev => prev.map(p => p.id === process.id ? updatedProcess : p));
+    }
+  };
+  
+  const openAddUserModal = () => {
+    setFormUserName('');
+    setFormUserEmail('');
+    setFormUserPassword('');
+    setIsAddUserModalOpen(true);
+  };
+
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formUserName || !formUserEmail || !formUserPassword) {
+      showNotification('Preencha todos os campos.');
+      return;
+    }
+
+    const result = registerUser({
+      name: formUserName,
+      email: formUserEmail,
+      password: formUserPassword
+    });
+
+    if (result.success) {
+      setSystemUsers(getUsers()); // Refresh list
+      setIsAddUserModalOpen(false);
+      showNotification('Usuário adicionado com sucesso!');
+    } else {
+      showNotification(result.message || 'Erro ao adicionar usuário.');
+    }
+  };
+
+  const openEditUserModal = (userToEdit: User) => {
+    setEditingUser(userToEdit);
+    setFormUserName(userToEdit.name);
+    setFormUserEmail(userToEdit.email);
+    setFormUserPassword(''); // Blank by default, only change if user types
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleUpdateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    if (!formUserName || !formUserEmail) {
+      showNotification('Nome e e-mail são obrigatórios.');
+      return;
+    }
+
+    // If password field is empty, keep the old one
+    const updatedData: User = {
+      ...editingUser,
+      name: formUserName,
+      email: formUserEmail,
+      password: formUserPassword.length > 0 ? formUserPassword : editingUser.password
+    };
+
+    const result = updateUser(updatedData);
+
+    if (result.success) {
+      setSystemUsers(getUsers());
+      setIsEditUserModalOpen(false);
+      setEditingUser(null);
+      showNotification('Dados do usuário atualizados!');
+      
+      // Update current session if editing self
+      if (user && user.id === editingUser.id) {
+        const newSession = { ...user, name: updatedData.name, email: updatedData.email };
+        setUser(newSession);
+        localStorage.setItem('processflow_user', JSON.stringify(newSession));
+      }
+    } else {
+      showNotification(result.message || 'Erro ao atualizar usuário.');
     }
   };
 
@@ -434,6 +525,189 @@ function App() {
     );
   };
 
+  const renderUsersList = () => {
+    return (
+      <main className="max-w-6xl mx-auto p-6 md:p-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Usuários</h1>
+            <p className="text-slate-500 mt-1">Gerencie quem tem acesso ao sistema</p>
+          </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={openAddUserModal}
+              className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-full flex items-center gap-2 font-medium transition-all shadow-lg shadow-brand-500/20 hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              <UserPlus size={20} />
+              <span>Novo Usuário</span>
+            </button>
+            <button 
+              onClick={() => setView('dashboard')}
+              className="text-slate-500 hover:text-slate-900 flex items-center gap-2 font-medium transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100"
+            >
+              <ChevronLeft size={20} />
+              Voltar
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nome</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {systemUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                      Nenhum usuário encontrado além do demo.
+                    </td>
+                  </tr>
+                ) : (
+                  systemUsers.map((sysUser) => (
+                    <tr key={sysUser.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold border border-brand-200 text-sm">
+                            {sysUser.name ? sysUser.name.substring(0,2).toUpperCase() : sysUser.email.substring(0,2).toUpperCase()}
+                          </div>
+                          <span className="font-medium text-slate-700">{sysUser.name || 'Sem nome'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-slate-600">
+                          <Mail size={16} className="text-slate-400" />
+                          {sysUser.email}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                          <Shield size={12} />
+                          Ativo
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                        {sysUser.id.substring(0, 8)}...
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button 
+                          onClick={() => openEditUserModal(sysUser)}
+                          className="text-slate-400 hover:text-brand-600 hover:bg-slate-100 p-2 rounded-lg transition-all"
+                          title="Editar usuário"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-xs text-slate-500">
+             Total de {systemUsers.length} usuário(s) registrados.
+          </div>
+        </div>
+
+        {/* Add/Edit User Modal */}
+        {(isAddUserModalOpen || isEditUserModalOpen) && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => { setIsAddUserModalOpen(false); setIsEditUserModalOpen(false); }}></div>
+             
+             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    {isEditUserModalOpen ? <Pencil size={20} className="text-brand-600"/> : <UserPlus size={20} className="text-brand-600"/>}
+                    {isEditUserModalOpen ? 'Editar Usuário' : 'Adicionar Usuário'}
+                  </h3>
+                  <button onClick={() => { setIsAddUserModalOpen(false); setIsEditUserModalOpen(false); }} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <form onSubmit={isEditUserModalOpen ? handleUpdateUser : handleAddUser} className="p-6 space-y-4">
+                   <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700 ml-1">Nome Completo</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                          <UserIcon size={18} />
+                        </div>
+                        <input
+                          type="text"
+                          value={formUserName}
+                          onChange={(e) => setFormUserName(e.target.value)}
+                          className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                          placeholder="Ex: João Silva"
+                          required
+                        />
+                      </div>
+                   </div>
+
+                   <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700 ml-1">E-mail</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                          <Mail size={18} />
+                        </div>
+                        <input
+                          type="email"
+                          value={formUserEmail}
+                          onChange={(e) => setFormUserEmail(e.target.value)}
+                          className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                          placeholder="Ex: joao@empresa.com"
+                          required
+                        />
+                      </div>
+                   </div>
+
+                   <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-slate-700 ml-1">
+                        {isEditUserModalOpen ? 'Nova Senha (Opcional)' : 'Senha Provisória'}
+                      </label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                          {isEditUserModalOpen ? <KeyRound size={18} /> : <Lock size={18} />}
+                        </div>
+                        <input
+                          type="password"
+                          value={formUserPassword}
+                          onChange={(e) => setFormUserPassword(e.target.value)}
+                          className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                          placeholder={isEditUserModalOpen ? "Deixe em branco para manter" : "No mínimo 6 caracteres"}
+                          minLength={isEditUserModalOpen ? 0 : 6}
+                          required={!isEditUserModalOpen}
+                        />
+                      </div>
+                      {isEditUserModalOpen && (
+                        <p className="text-xs text-slate-400 ml-1">
+                          Só preencha se quiser alterar a senha atual.
+                        </p>
+                      )}
+                   </div>
+
+                   <div className="pt-2">
+                      <button
+                        type="submit"
+                        className="w-full py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all transform active:scale-[0.98]"
+                      >
+                        {isEditUserModalOpen ? 'Atualizar Dados' : 'Salvar Usuário'}
+                      </button>
+                   </div>
+                </form>
+             </div>
+          </div>
+        )}
+      </main>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/50 font-sans selection:bg-brand-100 selection:text-brand-900">
       <Header 
@@ -448,6 +722,7 @@ function App() {
         {view === 'dashboard' && renderDashboard()}
         {view === 'editor' && renderEditor()}
         {view === 'viewer' && renderViewer()}
+        {view === 'users' && renderUsersList()}
       </div>
 
       <ShareModal 
