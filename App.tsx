@@ -3,11 +3,16 @@ import { Header } from './components/Header';
 import { BlockEditor } from './components/BlockEditor';
 import { BlockRenderer } from './components/BlockRenderer';
 import { ShareModal } from './components/ShareModal';
+import { Login } from './components/Login'; // Import Login
 import { Process, ViewMode, Block, ShareSettings } from './types';
 import { getProcesses, saveProcess, deleteProcess, generateId } from './services/storageService';
 import { Plus, Share2, ChevronLeft, Save, Pencil, Trash2, Check, Text, Image as ImageIcon, Film, Mic, ListTodo, Calendar, Sparkles, FileText } from 'lucide-react';
 
 function App() {
+  // Auth State
+  const [user, setUser] = useState<{ email: string } | null>(null);
+
+  // App State
   const [view, setView] = useState<ViewMode>('dashboard');
   const [processes, setProcesses] = useState<Process[]>([]);
   const [activeProcessId, setActiveProcessId] = useState<string | null>(null);
@@ -22,10 +27,28 @@ function App() {
   const [editorTitle, setEditorTitle] = useState('');
   const [editorDesc, setEditorDesc] = useState('');
   const [editorBlocks, setEditorBlocks] = useState<Block[]>([]);
+  const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
 
   useEffect(() => {
+    // Check for persisted session (optional implementation, for now simulates fresh login on refresh unless we save to localStorage)
+    const storedUser = localStorage.getItem('processflow_user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
     loadData();
   }, []);
+
+  const handleLogin = (email: string) => {
+    const userData = { email };
+    setUser(userData);
+    localStorage.setItem('processflow_user', JSON.stringify(userData));
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('processflow_user');
+    setView('dashboard'); // Reset view
+  };
 
   const loadData = () => {
     const data = getProcesses();
@@ -128,6 +151,29 @@ function App() {
     setEditorBlocks(editorBlocks.filter(b => b.id !== id));
   };
 
+  // Drag and Drop Handlers
+  const handleDragStart = (index: number) => {
+    setDraggedBlockIndex(index);
+  };
+
+  const handleDragEnter = (index: number) => {
+    if (draggedBlockIndex === null || draggedBlockIndex === index) return;
+
+    const newBlocks = [...editorBlocks];
+    const draggedBlock = newBlocks[draggedBlockIndex];
+
+    // Remove item from old position and insert at new position
+    newBlocks.splice(draggedBlockIndex, 1);
+    newBlocks.splice(index, 0, draggedBlock);
+
+    setEditorBlocks(newBlocks);
+    setDraggedBlockIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedBlockIndex(null);
+  };
+
   // Viewer Logic
   const handleCheckToggle = (blockId: string, itemId: string) => {
     const process = getActiveProcess();
@@ -150,6 +196,11 @@ function App() {
     // Ideally save to storage as well, but for demo state is enough or we call saveProcess
     saveProcess(updatedProcess);
   };
+
+  // Authentication Guard
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   // Renderers
   const renderDashboard = () => {
@@ -270,12 +321,17 @@ function App() {
         </div>
 
         <div className="space-y-4 min-h-[200px]">
-          {editorBlocks.map((block) => (
+          {editorBlocks.map((block, index) => (
             <BlockEditor 
-              key={block.id} 
+              key={block.id}
+              index={index}
               block={block} 
               onChange={updateBlock}
               onRemove={() => removeBlock(block.id)}
+              onDragStart={handleDragStart}
+              onDragEnter={handleDragEnter}
+              onDragEnd={handleDragEnd}
+              isDragging={draggedBlockIndex === index}
             />
           ))}
           
@@ -380,7 +436,13 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/50 font-sans selection:bg-brand-100 selection:text-brand-900">
-      <Header currentView={view} onChangeView={handleNavigate} onSearch={setSearchQuery} />
+      <Header 
+        currentView={view} 
+        onChangeView={handleNavigate} 
+        onSearch={setSearchQuery}
+        user={user}
+        onLogout={handleLogout}
+      />
       
       <div className="flex-1 overflow-y-auto">
         {view === 'dashboard' && renderDashboard()}

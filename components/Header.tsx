@@ -1,14 +1,22 @@
-import React from 'react';
-import { LayoutDashboard, FilePlus2, Search, CircleUser } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, FilePlus2, Search, CircleUser, LogOut, User as UserIcon } from 'lucide-react';
 import { ViewMode } from '../types';
 
 interface HeaderProps {
   currentView: ViewMode;
   onChangeView: (view: ViewMode) => void;
   onSearch: (query: string) => void;
+  user?: { email: string } | null;
+  onLogout?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentView, onChangeView, onSearch }) => {
+export const Header: React.FC<HeaderProps> = ({ currentView, onChangeView, onSearch, user, onLogout }) => {
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const getInitials = (email: string) => {
+    return email.substring(0, 2).toUpperCase();
+  };
+
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
@@ -54,9 +62,41 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onChangeView, onSea
 
           <div className="w-px h-6 bg-slate-200 mx-1 hidden md:block"></div>
 
-          <button className="p-2 rounded-full text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors">
-            <CircleUser size={24} />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              onBlur={() => setTimeout(() => setShowUserMenu(false), 200)}
+              className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full text-slate-500 hover:bg-slate-100 transition-all border border-transparent hover:border-slate-200"
+            >
+              <div className="hidden md:block text-right mr-1">
+                 <div className="text-xs font-bold text-slate-700">{user?.email.split('@')[0]}</div>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold border border-brand-200">
+                {user ? getInitials(user.email) : <CircleUser size={20} />}
+              </div>
+            </button>
+
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="px-4 py-3 border-b border-slate-50 md:hidden">
+                   <p className="text-sm font-bold text-slate-800 truncate">{user?.email}</p>
+                </div>
+                <button 
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-brand-600 flex items-center gap-2"
+                >
+                  <UserIcon size={16} />
+                  Minha Conta
+                </button>
+                <button 
+                  onClick={onLogout}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <LogOut size={16} />
+                  Sair
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
       </div>
       {/* Mobile Search */}

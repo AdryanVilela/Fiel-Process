@@ -4,13 +4,29 @@ import { Trash2, GripVertical, Image as ImageIcon, Film, Mic, Text, ListTodo, Up
 
 interface BlockEditorProps {
   block: Block;
+  index: number;
   onChange: (updatedBlock: Block) => void;
   onRemove: () => void;
+  onDragStart: (index: number) => void;
+  onDragEnter: (index: number) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
 }
 
-export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange, onRemove }) => {
+export const BlockEditor: React.FC<BlockEditorProps> = ({ 
+  block, 
+  index, 
+  onChange, 
+  onRemove,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
+  isDragging
+}) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isHandleHovered, setIsHandleHovered] = useState(false);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -276,8 +292,21 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange, onRem
   };
 
   return (
-    <div className="group relative flex items-start gap-4 mb-6 bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:border-slate-300 hover:shadow-md transition-all duration-300">
-      <div className="mt-3 text-slate-200 cursor-grab hover:text-slate-400 active:cursor-grabbing">
+    <div 
+      draggable={isHandleHovered}
+      onDragStart={() => onDragStart(index)}
+      onDragEnter={() => onDragEnter(index)}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => e.preventDefault()}
+      className={`group relative flex items-start gap-4 mb-6 p-6 rounded-xl shadow-sm border transition-all duration-300 
+        ${isDragging ? 'opacity-50 border-brand-300 border-dashed bg-brand-50 scale-[0.99]' : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-md'}
+      `}
+    >
+      <div 
+        className="mt-3 text-slate-200 hover:text-brand-600 cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-100 transition-colors"
+        onMouseEnter={() => setIsHandleHovered(true)}
+        onMouseLeave={() => setIsHandleHovered(false)}
+      >
         <GripVertical size={20} />
       </div>
       
